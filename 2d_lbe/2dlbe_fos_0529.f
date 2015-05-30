@@ -7,7 +7,7 @@ c  multi-relaxation-time model in the nested loop
 c  nest_loop.f
 c  from Like Li 12/2013
 c******************************************************
-	     implicit double precision (a-h,o-z) !modified
+	     implicit double precision (a-h,o-z)
 	     parameter(nxd=1001,nyd=401,ndel=600)
 	     dimension af(0:8),un(nxd,nyd),n_march(6),sum_flux(nxd),
      &             sig_xx(nxd),sig_xy(nxd),sig_yy(nxd),
