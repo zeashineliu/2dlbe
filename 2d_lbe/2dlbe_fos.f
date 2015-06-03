@@ -5,7 +5,7 @@ c  simple extrapolation in at i=nx
 c  symmetry condition at j=1 and ny
 c  multi-relaxation-time model in the nested loop
 c  nest_loop.f
-c  from Like Li 12/2013
+c  got from Like Li in 12/2013
 c******************************************************
 	     implicit double precision (a-h,o-z)
 	     parameter(nxd=1001,nyd=401,ndel=600)
@@ -92,7 +92,7 @@ cc--------------------------------------------------------------
 c**************************************************************
 c**********   START THE MAJOR LOOP IN LBM SIMULATION  *********
 c**************************************************************
-   !!!!START OF ITERATION LEVEL SETUP
+   !!!!START OF ITERATION LEVEL SETUP:need to be verified
        DO 2000 nn=1,n_level
 	      ntimes=n_march(nn)
 	      nxm=nx-1
@@ -171,10 +171,10 @@ c	            write(12,*)'ii=',ii,'err2=',err2
              endif
 40	         FORMAT(2x,i3,2x,f10.6,2x,3f13.8)
 44	         FORMAT(2x,i3,2x,f10.6,2x,4f13.8)
-           !!output II:
+           !!output II:   !for continuous calculation, need more verification!!!!!!!!!!!!!!!!!!
             !save the flow field every 1000 time steps:
             !note: results for ux,uy, rho at i=1, i=nx, j=1 and j=ny lines are 
-	        !not physical.  Only some of the fi's are needed at thoselocations; 
+	        !not physical.  Only some of the fi's are needed at those locations; 
 	         km=mod(ii,nw)
 	         kw=0
 	         if(km.eq.0.and.ii.ge.200) kw=1
@@ -186,8 +186,8 @@ c	            write(12,*)'ii=',ii,'err2=',err2
 	            write(20,*) tau,vt,Re,radius,nx,ny,imid,jmid,ii
                 write(20,*) 'variables =x,y,ux,uy,rho'
                 write(20,*) 'zone I=', nx,'J=',ny,'f= point'
+	            do j=1,ny  !i and j been flipped 05/31:correct
 	            do i=1,nx
-	            do j=1,ny
 	               write(20,88) i,j,ux(i,j),uy(i,j),rho(i,j)
 	            enddo
 	            enddo		   
@@ -346,7 +346,8 @@ c     &  	          + 6*vt*cf(k)
 220	       continue
 200	    continue
 
-cc--obtain the BC conditions for fi's at j=1 & j=ny
+        goto 610   !skip the BC setup based on macro_variables
+cc--obtain the BC conditions for fi's at j=1 & j=ny  
         j=1
         do 400 i=1,nx-1
 	      do 420 k=1,8
@@ -405,6 +406,14 @@ c     &           	  + fi_neq_ko_ia_ja
 c     &  	          + 6*vt*cf(k)
 620	      continue
 600	    continue
+610     continue
+
+cc--periodic BC conditions for fi's at j=1 & j=ny
+        fi(0:8,1:nx,1) = fi(0:8,1:nx,ny-1)
+        fi(0:8,1:nx,ny) = fi(0:8,1:nx,2)
+		
+cc--simple extrapolation at the downstrem at x=nx.
+        fi(0:8,nx,1:ny) = fi(0:8,nx-1,1:ny)
 
 cc--carry out relaxation step for the interior points
         do i=2,nx-1
@@ -471,10 +480,6 @@ cc--carry out relaxation step for the interior points
 500	       continue	
         enddo
 		
-cc--simple extrapolation at the downstrem at x=nx.
-        fi(4,nx,1:ny) = fi(4,nx-1,1:ny)
-        fi(5,nx,1:ny) = fi(5,nx-1,1:ny)
-        fi(6,nx,1:ny) = fi(6,nx-1,1:ny)
 
       RETURN
       END
@@ -644,12 +649,25 @@ c  calculate physical variables: rho, ux, uy:
 	            endif
 	         enddo
           enddo
+		  
 c    set symmetry condition for uy at the symmetry line:
-	      v(1:nx,2)=0.0
-	      v(1:nx,ny-1)=0.0
+c	      v(1:nx,2)=0.0
+c	      v(1:nx,ny-1)=0.0
+
+c    set periodic BC at y=1,2 & ny-1,ny
+          v(1:nx,ny)=v(1:nx,2)
+          v(1:nx,1)=v(1:nx,ny-1)
+          u(1:nx,ny)=u(1:nx,2)
+          u(1:nx,1)=u(1:nx,ny-1)
+          rho(1:nx,ny)=rho(1:nx,2)
+          rho(1:nx,1)=rho(1:nx,ny-1)          
+c    set the inlet BC at x=1		  
 	      u(1,1:ny)=vt
 	      v(1,1:ny)=0.0
-		 
+c    set the outlet BC at x=nx
+	      u(nx,1:ny)=u(nx-1,1:ny)
+	      v(nx,1:ny)=v(nx-1,1:ny)        
+	      rho(nx,1:ny)=rho(nx-1,1:ny) 		 
 	      RETURN
 	      END
 	
@@ -695,7 +713,7 @@ c**************************************************************
 	     END
 
 c********************************************************************
-c*********************wall_finding***********************************
+c*********************subroutine wall_finding************************
 c********************************************************************
 	     subroutine wall_finding(radius,imid,jmid,nx,ny,walls,wb)
 	     implicit double precision (a-h,o-z)
@@ -712,10 +730,10 @@ c  identifing the solid nodes:
      &		    .le.radius) walls(i,j)=1
 c  identifying the boundary nodes:
 	     forall(i=1:nx,j=1:ny,walls(i,j).eq.1.and.
-     &		(walls(i+1,j)+walls(i+1,j+1)
-     &	 	+walls(i,j+1)+walls(i-1,j+1)
-     &		+walls(i-1,j)+walls(i-1,j-1)
-     &     	+walls(i,j-1)+walls(i+1,j-1)-8).lt.0) wb(i,j)=1
+     &		    (walls(i+1,j)+walls(i+1,j+1)
+     &	 	    +walls(i,j+1)+walls(i-1,j+1)
+     &		    +walls(i-1,j)+walls(i-1,j-1)
+     &          +walls(i,j-1)+walls(i+1,j-1)-8).lt.0) wb(i,j)=1
 	     do i=1,nx
 	        xx=i-imid
 	        do j=1,ny
@@ -775,7 +793,7 @@ c  evaluate the equilibrium distribution function at walls(i,j)=0
 	           feq(7)=c1*(rh_vmag+g7*(c3+c4*g7))
 	           feq(8)=c2*(rh_vmag+g8*(c3+c4*g8))
 	      
-	           if(walls(i,j).eq.1) goto 600
+	           if(walls(i,j).eq.1) goto 600   !problem:i,j vs jx,jy???
 	           do k=0,8
 	             fi(k,jx,jy)=feq(k) + c_to_f*(fi(k,jx,jy)-feq(k))
 	           enddo
@@ -961,10 +979,10 @@ cc-------using potential flow field------
 	        ycnt=jmid
 	        write(12,20) tau,radius,visc,vt,nx,ny,Re,imid,jmid
 	        den_0 = 1.0
-           
+           !find solid/fluid nodes and calculate dels
 	        call wall_finding(radius,imid,jmid,nx,ny,walls,wb)
 	        call finding_dels
-	
+           !calculate velocity & density based on potential flow theory
             do i=1,nx
 	           xx=i-imid
 	           do j=1,ny
@@ -985,8 +1003,8 @@ cc-------using potential flow field------
 	        enddo
 	        ux(1,:)=vt
 	        uy(1,:)=0.0
-	        write(6,*)'finishing vel specify from potential solution'
-
+	        write(6,*)'finishing vel specify from potential solution' 
+           !construct fi's based on obtained macro variables
             do jx=1,nx
 	        do jy=1,ny
 	           vxx=ux(jx,jy)
@@ -1029,8 +1047,7 @@ c              vmag=1.0-1.5*(vxx*vxx + vyy*vyy)
 	        write(6,*)'finishing 1st collision for key=0'
 			
 	        call streaming(fi)
-	        call macro_variables
-			
+	        call macro_variables			
 	        do i=1,nx
 	        do j=1,ny
 	           un(i,j)=ux(i,j)
@@ -1039,9 +1056,11 @@ c              vmag=1.0-1.5*(vxx*vxx + vyy*vyy)
 	        write(6,*)'finishing 1st macro_var for key=0'
 	     endif
 		 
-cc-------start from saved information---
+cc-------start from saved information---  !needs modification:05/31
 	     if(key.eq.1) then
 	        read(22,*)tau,vt,Re,radius,nx,ny,imid,jmid,nt_last
+	        read(22,*)
+	        read(22,*)
 	        s8=1./tau
 	        s9=s8
 	        jmid=(ny-1)/2+1
@@ -1133,7 +1152,7 @@ c     &			          uy(i_front,j),rho(i_front,j)
 	     END
 
 c***************************************************************************		 
-c********************subroutine c_2_f_transfer******************************		 
+c********************subroutine c_2_f_transfer***coarse to fine*************		 
 c***************************************************************************	
 	     subroutine c_2_f_transfer(un)
 	     implicit double precision (a-h,o-z)
@@ -1173,6 +1192,7 @@ c***************************************************************************
 	           ux(ix,jy)=temp(i,j)
 	        enddo
 	     enddo
+		 
 	     do i=1,nx_c
 	        do j=1,ny_c
                temp(i,j)=uy(i,j)
@@ -1188,6 +1208,7 @@ c***************************************************************************
 	           uy(ix,jy)=temp(i,j)
 	        enddo
 	     enddo	
+		 
 	     do i=1,nx_c
 	        do j=1,ny_c
                temp(i,j)=rho(i,j)
