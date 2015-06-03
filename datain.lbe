@@ -1,0 +1,17 @@
+0,0.88,20.,15,750,300,150,1.0E-12,5000
+1
+50000,100000
+1.63,1.14,1.92,1.92
+
+key,tau(0.5<tau<1.5),Re,radius,nx(30D),ny(10D),imid(10R),err_converge,nw,
+n_level
+(n_march(k),k=1,n_level) 
+s2,s3,s5,s7
+c------------------------------------------------------------------
+c key=0:  start from the IC's specified by this code.
+c	   		i.e. potential flow for flow over cylinder.
+c key=1:  start from the saved field. 
+c	  No immediate nested iteration 
+c key=2:  perform nested iteration immediately; after reading 
+c	  the saved field.
+c------------------------------------------------------------------
